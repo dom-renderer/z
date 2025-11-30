@@ -1,0 +1,75 @@
+. Before Morning Shift Starts (Order Sheet Upload)
+Orders from shops / customers are already prepared in another software and come as a ready file (order sheet).
+Office staff goes to the Order Upload Screen in our system.
+Here the Date and Shift = Morning will be pre-selected by default.
+Staff does not need to change date or shift.
+Staff simply uploads the ready Order Sheet file.
+The system automatically calculates for each product:
+Total Orders = Sales Order Quantity + Indent Quantity (read directly from the sheet)
+Opening Stock (Morning) = always ZERO (for the morning shift, opening stock is always 0, without exception)
+So Production Required = Total Orders – Opening Stock = Total Orders
+This way, the full production plan for the morning shift is ready: how much to produce for each item.
+🧁 2. During the Morning Shift (For Bakers)
+Bakers open the tablet screen.
+Today’s Date and Shift = Morning are already pre-selected.
+Bakers cannot change the date or shift.
+If anything needs to be changed, only the Administrator can do it from the backend.
+On the tablet they see a simple list of products, for example:
+Product Name
+Size
+Production Required (total pieces to make in this shift)
+Produced (pieces made so far)
+Remaining To Produce (how many pieces are still pending)
+Bakers will continuously update production:
+As soon as one cake / one batch is finished, they enter that quantity under “Produced”.
+Example: “Black Forest 500g – Produced: 5 pcs”.
+As soon as they enter the quantity:
+The system automatically reduces that quantity from Remaining To Produce, and
+Automatically increases the Produced quantity.
+At the top, a doughnut chart / progress indicator will show:
+The Total Production Required for the whole shift
+How much has been Produced so far
+In the center, a big message like:
+“Shift Progress: 70% completed”
+This gives both the office and bakers a live idea of how much of the shift’s work is completed.
+✅ 3. End of the Morning Shift
+At the end of the shift, bakers make sure that:
+Produced quantity is correctly updated for every product.
+For the morning shift, the system shows a summary for each product:
+Production Required
+Produced
+Remaining To Produce
+The system calculates Closing Stock (Morning) based on what was produced
+(since Morning Opening Stock is always 0, Closing Stock simply equals total produced for that product, internally managed by the system).
+As per your rule:
+Night Shift Opening Stock = Morning Shift Closing Stock
+So whatever is ready and left at the end of the morning shift becomes the Opening Stock for the Night Shift (for the same day).
+🌙 4. Night Shift
+The Order Sheet for the Night Shift also comes as a ready file from the other software.
+Office staff again goes to the upload screen for the Night Shift:
+Here, Date and Shift = Night will also be pre-selected.
+Staff only has to upload the Night Shift Order Sheet.
+The system automatically calculates for each product:
+Opening Stock (Night) = Morning Shift Closing Stock (linked automatically)
+Total Orders (Night) = Sales + Indent (from the uploaded sheet)
+Production Required (Night) = Total Orders (Night) – Opening Stock (Night)
+For Night Shift, bakers use the same tablet screen:
+Today’s Date and Shift = Night are pre-selected –
+they cannot change them (only admin can from backend).
+The list shows:
+Product Name, Size, Production Required, Produced, Remaining To Produce
+They also continuously update production during the night shift, just like morning.
+At the end of the night shift, the system shows a closing summary:
+Production Required, Produced, Remaining To Produce for each product.
+🔁 5. Next Day Morning Logic (Opening Stock Rule)
+There will be a simple rule in the system:
+For every new day’s Morning Shift, Opening Stock will always be ZERO for all products, with no exceptions.
+This means:
+Last night’s Closing Stock is not carried forward to the next day’s morning opening stock.
+For the next morning, the system will again treat:
+Opening Stock = 0, and
+Production Required = Total Orders (from the new morning order sheet).
+As per your instruction:
+There will be no dispatch tracking in the system.
+There will be no dispatch entries or dispatch screens.
+We will only track Orders and Production (Required, Produced, Remaining).

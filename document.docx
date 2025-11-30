@@ -1,0 +1,6 @@
+- Checker add while scheduling checklist
+- Changes statuses and add new status for in verification and verified by checkers
+- On check on redo in task submission list open popup and fill details like reasons & date
+- API for checker to verify task
+- Generate new tasks on check on redo and API for resubmission
+- On checklist scheduling remove time from startdate & enddate except once frequency & add start at and completed by time field for start and due date and change in apis in commands for effect
