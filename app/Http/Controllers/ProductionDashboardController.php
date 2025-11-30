@@ -79,17 +79,26 @@ class ProductionDashboardController extends Controller
             ];
         }
 
-        $mrngShift = Shift::where(\DB::raw('LOWER(title)'), 'LIKE', '%morning%')->first();
-        $nytShift = Shift::where(\DB::raw('LOWER(title)'), 'LIKE', '%night%')->first();
+        $allShifts = Shift::whereNotIn('shift_type', [1, 2])->oldest('start')->get();
+        $firstShift = Shift::where('shift_type', 1)->first();
+        $lastShift = Shift::where('shift_type', 2)->first();
 
-        $morningShiftStartTime = $mrngShift->start ?? '08:00:00';
-        $morningShiftEndTime = $mrngShift->end ?? '19:59:59';
+        if (!isset($firstShift->id) || !isset($lastShift->id)) {
+            return response()->json(['html' => '
+            <div class="alert text-center alert-warning mt-4 fs-4 fw-bold" role="alert">
+                Please set shift timing properly to view production dashboard
+            </div>
+            ']);
+        }
 
-        $nightShiftStartTime = $nytShift->start ?? '20:00:00';
-        $nightShiftEndTime = $nytShift->start ?? '07:59:59';
+        $morningShiftStartTime = $firstShift->start ?? '08:00:00';
+        $morningShiftEndTime = $firstShift->end ?? '19:59:59';
 
-        $morningShift = $mrngShift->id ?? null;
-        $nightShift = $nytShift->id ?? null;
+        $nightShiftStartTime = $lastShift->start ?? '20:00:00';
+        $nightShiftEndTime = $lastShift->end ?? '07:59:59';
+
+        $morningShift = $firstShift->id ?? null;
+        $nightShift = $lastShift->id ?? null;
 
         foreach ($uniqueQuery as $row) {
             $startDate = Carbon::parse($request->input('from_date'));
@@ -97,7 +106,7 @@ class ProductionDashboardController extends Controller
 
             if (!$startDate->greaterThan($endDate)) {
                 $currentDate = $startDate;
-                
+
                 $orderedP = $producedP = $pendingP = $ordered = $produced = $pending = 0;
 
                 while ($currentDate <= $endDate) {
@@ -108,90 +117,96 @@ class ProductionDashboardController extends Controller
 
                     if ($morningShift == $request->shift_filter) {
                         $productionRequiredForThisRow = ProductionPlanning::where('product_id', $row['product_id'])->where('uom_id', $row['uom_id'])
-                        ->whereDate('shift_time', $currentDate->format('Y-m-d'))
-                        ->where('shift_id', $request->shift_filter)
-                        ->sum('total');
+                            ->whereIn('shift_id', [$morningShift])
+                            ->where(function ($innerBuilder) use ($currentDate) {
+                                $innerBuilder->whereDate('shift_time', $currentDate->format('Y-m-d'))
+                                    ->orWhereDate('shift_time', date('Y-m-d', strtotime($currentDate->format('Y-m-d') . ' +1 day')));
+                            })
+                            ->sum('total');
 
                         $producedForThisRowPending = ProductionItem::where('product_id', $row['product_id'])->where('unit_id', $row['uom_id'])
-                        ->whereHas('production', function ($innerBuilder) use ($row, $currentDate) {
-                            $innerBuilder->whereDate('production_date', $currentDate->format('Y-m-d'))
-                            ->where('shift_id', request('shift_filter'))
-                            ->where('status', 'pending');
-                        })
-                        ->sum('quantity');
+                            ->whereHas('production', function ($innerBuilder) use ($currentDate, $morningShift) {
+                                $innerBuilder->whereIn('shift_id', [$morningShift])
+                                    ->where('status', 'pending')
+                                    ->where(function ($innerInnerBuilder) use ($currentDate) {
+                                        $innerInnerBuilder->whereDate('production_date', $currentDate->format('Y-m-d'))
+                                            ->orWhereDate('production_date', date('Y-m-d', strtotime($currentDate->format('Y-m-d') . ' +1 day')));
+                                    });
+                            })
+                            ->sum('quantity');
 
                         $producedForThisRowWastage = ProductionItem::where('product_id', $row['product_id'])->where('unit_id', $row['uom_id'])
-                        ->whereHas('production', function ($innerBuilder) use ($row, $currentDate) {
-                            $innerBuilder->whereDate('production_date', $currentDate->format('Y-m-d'))
-                            ->where('shift_id', request('shift_filter'))
-                            ->where('status', 'expire');
-                        })
-                        ->sum('quantity');
+                            ->whereHas('production', function ($innerBuilder) use ($currentDate, $morningShift) {
+                                $innerBuilder->whereIn('shift_id', [$morningShift])
+                                    ->where('status', 'expire')
+                                    ->where(function ($innerInnerBuilder) use ($currentDate) {
+                                        $innerInnerBuilder->whereDate('production_date', $currentDate->format('Y-m-d'))
+                                            ->orWhereDate('production_date', date('Y-m-d', strtotime($currentDate->format('Y-m-d') . ' +1 day')));
+                                    });
+                            })
+                            ->sum('quantity');
 
                         $producedForThisRow = $producedForThisRowPending - $producedForThisRowWastage;
 
                     } else if ($nightShift == $request->shift_filter) {
                         $productionRequiredForThisRow = ProductionPlanning::where('product_id', $row['product_id'])->where('uom_id', $row['uom_id'])
-                        ->whereIn('shift_id', [$morningShift, $nightShift])
-                        ->where(function ($innerBuilder) use ($currentDate) {
-                            $innerBuilder->whereDate('shift_time', $currentDate->format('Y-m-d'))
-                            ->orWhereDate('shift_time', date('Y-m-d', strtotime($currentDate->format('Y-m-d') . ' +1 day')));
-                        })
-                        ->sum('total');
+                            ->whereIn('shift_id', [$nightShift])
+                            ->where(function ($innerBuilder) use ($currentDate) {
+                                $innerBuilder->whereDate('shift_time', $currentDate->format('Y-m-d'))
+                                    ->orWhereDate('shift_time', date('Y-m-d', strtotime($currentDate->format('Y-m-d') . ' +1 day')));
+                            })
+                            ->sum('total');
 
                         $producedForThisRowPending = ProductionItem::where('product_id', $row['product_id'])->where('unit_id', $row['uom_id'])
-                        ->whereHas('production', function ($innerBuilder) use ($currentDate, $morningShift, $nightShift) {
-                            $innerBuilder->whereIn('shift_id', [$morningShift, $nightShift])
-                            ->where('status', 'pending')
-                            ->where(function ($innerInnerBuilder) use ($currentDate) {
-                                $innerInnerBuilder->whereDate('production_date', $currentDate->format('Y-m-d'))
-                                ->orWhereDate('production_date', date('Y-m-d', strtotime($currentDate->format('Y-m-d') . ' +1 day')));
-                            });
-                        })
-                        ->sum('quantity');
+                            ->whereHas('production', function ($innerBuilder) use ($currentDate, $morningShift, $nightShift) {
+                                $innerBuilder->whereIn('shift_id', [$nightShift])
+                                    ->where('status', 'pending')
+                                    ->where(function ($innerInnerBuilder) use ($currentDate) {
+                                        $innerInnerBuilder->whereDate('production_date', $currentDate->format('Y-m-d'))
+                                            ->orWhereDate('production_date', date('Y-m-d', strtotime($currentDate->format('Y-m-d') . ' +1 day')));
+                                    });
+                            })
+                            ->sum('quantity');
 
                         $producedForThisRowWastage = ProductionItem::where('product_id', $row['product_id'])->where('unit_id', $row['uom_id'])
-                        ->whereHas('production', function ($innerBuilder) use ($currentDate, $morningShift, $nightShift) {
-                            $innerBuilder->whereIn('shift_id', [$morningShift, $nightShift])
-                            ->where('status', 'expire')
-                            ->where(function ($innerInnerBuilder) use ($currentDate) {
-                                $innerInnerBuilder->whereDate('production_date', $currentDate->format('Y-m-d'))
-                                ->orWhereDate('production_date', date('Y-m-d', strtotime($currentDate->format('Y-m-d') . ' +1 day')));
-                            });
-                        })
-                        ->sum('quantity');
+                            ->whereHas('production', function ($innerBuilder) use ($currentDate, $morningShift, $nightShift) {
+                                $innerBuilder->whereIn('shift_id', [$nightShift])
+                                    ->where('status', 'expire')
+                                    ->where(function ($innerInnerBuilder) use ($currentDate) {
+                                        $innerInnerBuilder->whereDate('production_date', $currentDate->format('Y-m-d'))
+                                            ->orWhereDate('production_date', date('Y-m-d', strtotime($currentDate->format('Y-m-d') . ' +1 day')));
+                                    });
+                            })
+                            ->sum('quantity');
 
                         $producedForThisRow = $producedForThisRowPending - $producedForThisRowWastage;
                     } else {
                         $productionRequiredForThisRow = ProductionPlanning::where('product_id', $row['product_id'])->where('uom_id', $row['uom_id'])
-                        ->whereIn('shift_id', [$morningShift, $nightShift])
-                        ->where(function ($innerBuilder) use ($currentDate) {
-                            $innerBuilder->whereDate('shift_time', $currentDate->format('Y-m-d'))
-                            ->orWhereDate('shift_time', date('Y-m-d', strtotime($currentDate->format('Y-m-d') . ' +1 day')));
-                        })
-                        ->sum('total');
+                            ->where(function ($innerBuilder) use ($currentDate) {
+                                $innerBuilder->whereDate('shift_time', $currentDate->format('Y-m-d'))
+                                    ->orWhereDate('shift_time', date('Y-m-d', strtotime($currentDate->format('Y-m-d') . ' +1 day')));
+                            })
+                            ->sum('total');
 
                         $producedForThisRowPending = ProductionItem::where('product_id', $row['product_id'])->where('unit_id', $row['uom_id'])
-                        ->whereHas('production', function ($innerBuilder) use ($currentDate, $morningShift, $nightShift) {
-                            $innerBuilder->whereIn('shift_id', [$morningShift, $nightShift])
-                            ->where('status', 'pending')
-                            ->where(function ($innerInnerBuilder) use ($currentDate) {
-                                $innerInnerBuilder->whereDate('production_date', $currentDate->format('Y-m-d'))
-                                ->orWhereDate('production_date', date('Y-m-d', strtotime($currentDate->format('Y-m-d') . ' +1 day')));
-                            });
-                        })
-                        ->sum('quantity');
+                            ->whereHas('production', function ($innerBuilder) use ($currentDate, $morningShift, $nightShift) {
+                                $innerBuilder->where('status', 'pending')
+                                    ->where(function ($innerInnerBuilder) use ($currentDate) {
+                                        $innerInnerBuilder->whereDate('production_date', $currentDate->format('Y-m-d'))
+                                            ->orWhereDate('production_date', date('Y-m-d', strtotime($currentDate->format('Y-m-d') . ' +1 day')));
+                                    });
+                            })
+                            ->sum('quantity');
 
                         $producedForThisRowWastage = ProductionItem::where('product_id', $row['product_id'])->where('unit_id', $row['uom_id'])
-                        ->whereHas('production', function ($innerBuilder) use ($currentDate, $morningShift, $nightShift) {
-                            $innerBuilder->whereIn('shift_id', [$morningShift, $nightShift])
-                            ->where('status', 'expire')
-                            ->where(function ($innerInnerBuilder) use ($currentDate) {
-                                $innerInnerBuilder->whereDate('production_date', $currentDate->format('Y-m-d'))
-                                ->orWhereDate('production_date', date('Y-m-d', strtotime($currentDate->format('Y-m-d') . ' +1 day')));
-                            });
-                        })
-                        ->sum('quantity');
+                            ->whereHas('production', function ($innerBuilder) use ($currentDate, $morningShift, $nightShift) {
+                                $innerBuilder->where('status', 'expire')
+                                    ->where(function ($innerInnerBuilder) use ($currentDate) {
+                                        $innerInnerBuilder->whereDate('production_date', $currentDate->format('Y-m-d'))
+                                            ->orWhereDate('production_date', date('Y-m-d', strtotime($currentDate->format('Y-m-d') . ' +1 day')));
+                                    });
+                            })
+                            ->sum('quantity');
 
                         $producedForThisRow = $producedForThisRowPending - $producedForThisRowWastage;
                     }
@@ -274,7 +289,8 @@ class ProductionDashboardController extends Controller
 
         if ($request->filled('uom_id')) {
             $totalOrders->where('uom_id', $request->uom_id);
-        };
+        }
+        ;
 
         $otherStatistics = [
             'total_orders' => $totalOrders->count(),
@@ -292,8 +308,11 @@ class ProductionDashboardController extends Controller
     {
         $date = date('Y-m-d', strtotime($date));
 
-        $morningShift = Shift::where(\DB::raw('LOWER(title)'), 'LIKE', '%morning%')->first()->end ?? '19:59:00';
-        $nightShift = Shift::where(\DB::raw('LOWER(title)'), 'LIKE', '%night%')->first()->end ?? '07:59:00';
+        $firstShift = Shift::where('shift_type', 1)->first();
+        $lastShift = Shift::where('shift_type', 2)->first();
+
+        $morningShift = $firstShift->end ?? '19:59:00';
+        $nightShift = $lastShift->end ?? '07:59:00';
 
         $start = Carbon::parse("$date $shiftStartTime");
         $end = Carbon::parse("$date $shiftEndTime");
