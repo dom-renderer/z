@@ -145,10 +145,10 @@
                     <div class="mb-3">
                         <label for="datetime" class="form-label"> Date </label>
                         @if(!in_array(\App\Helpers\Helper::$roles['admin'], auth()->user()->roles->pluck('id')->toArray()))
-                            <input type="text" class="form-control" id="datetime" value="{{ date('Y-m-d H:i') }}" disabled>
-                            <input type="hidden" name="datetime" value="{{ date('Y-m-d H:i') }}">
+                            <input type="text" class="form-control" id="datetime" value="{{ date('Y-m-d') }}" disabled>
+                            <input type="hidden" name="datetime" value="{{ date('Y-m-d') }}">
                         @else
-                            <input type="datetime-local" name="datetime" class="form-control" id="datetime" value="{{ date('Y-m-d H:i') }}" >
+                            <input type="date" name="datetime" class="form-control" id="datetime" value="{{ date('Y-m-d') }}" >
                         @endif
                     </div>
 

@@ -104,9 +104,6 @@ class ProductionPlanningController extends Controller
             'PROD.'
         ];
 
-        $morningShift = Shift::where(\DB::raw('LOWER(title)'), 'LIKE', '%morning%')->first()->id ?? null;
-        $nightShift = Shift::where(\DB::raw('LOWER(title)'), 'LIKE', '%night%')->first()->id ?? null;
-
         $isFileValid = false;
         $data = [];
 
@@ -384,105 +381,6 @@ class ProductionPlanningController extends Controller
 
         } catch (\Exception $e) {
             \Log::error('SCHEDULING IMPORT ERROR WHILE LOGGING : ' . $e->getMessage() . ' ON LINE : ' . $e->getLine());
-        }
-    }
-
-    public function statistics(Request $request) {
-        if ($request->ajax()) {
-            $query = ProductionPlanning::with(['shift', 'product', 'unit', 'user'])
-                ->orderBy('id', 'DESC');
-
-            $currentTime = date('H:i:s');
-            $currentShift = Shift::where(function ($query) use ($currentTime) {
-                    $query->whereTime('start', '<=', $currentTime)
-                        ->whereTime('end', '>=', $currentTime);
-                })
-                ->orWhere(function ($query) use ($currentTime) {
-                    $query->whereTime('start', '<=', $currentTime)
-                        ->whereRaw('TIME(`end`) < TIME(`start`)');
-                })
-                ->orWhere(function ($query) use ($currentTime) {
-                    $query->whereTime('end', '>=', $currentTime)
-                        ->whereRaw('TIME(`end`) < TIME(`start`)');
-                })
-                ->first()
-                ->id ?? null;
-
-            $query->where('shift_id', $currentShift);
-            $query->whereDate('shift_time', date('Y-m-d'));
-
-            if ($request->filled('category_id')) {
-                $query->whereHas('product', function ($q) use ($request) {
-                    $q->where('category_id', $request->category_id);
-                });
-            }
-
-            if ($request->filled('product_id')) {
-                $query->where('product_id', $request->product_id);
-            }
-
-            if ($request->filled('uom_id')) {
-                $query->where('uom_id', $request->uom_id);
-            }
-
-            $perPage = $request->input('length', 10);
-            $page = ($request->input('start', 0) / $perPage) + 1;
-
-            $paginated = $query->paginate($perPage, ['*'], 'page', $page);
-
-            $data = [];
-
-            $totalProduction = 0;
-            $producedSoFar = 0;
-
-            foreach ($paginated->items() as $row) {
-                $producedQty = ProductionItem::where('product_id', $row->product_id)
-                    ->where('unit_id', $row->uom_id)
-                    ->whereHas('production', function ($innerQuery) {
-                        $innerQuery->whereDate('production_date', date('Y-m-d'));
-                    })
-                    ->sum('quantity');
-
-                $required = $row->production ?? 0;
-                $remaining = max($required - $producedQty, 0);
-
-                $totalProduction += $required;
-                $producedSoFar += $producedQty;
-
-                $data[] = [
-                    'id' => $row->id,
-                    'product_stat' => $row->product->name ?? 'N/A',
-                    'unit_stat' => $row->unit->name ?? 'N/A',
-                    'pr_stat' => number_format($required, 2),
-                    'p_stat' => number_format($producedQty, 2),
-                    'rp_stat' => number_format($remaining, 2),
-                    'shift' => $row->shift->name ?? 'N/A',
-                    'user' => $row->user->name ?? 'N/A',
-                ];
-            }
-
-            $remainingToProduce = max($totalProduction - $producedSoFar, 0);
-
-            return response()->json([
-                'draw' => intval($request->input('draw')),
-                'recordsTotal' => $paginated->total(),
-                'recordsFiltered' => $paginated->total(),
-                'data' => $data,
-                'chart_data' => [
-                    'totalProduction' => round($totalProduction, 2),
-                    'producedSoFar' => round($producedSoFar, 2),
-                    'remaining' => round($remainingToProduce, 2),
-                ]
-            ]);
-        } else {
-            if ($request->method() == 'POST') {
-
-            } else {
-                $page_title = 'Production Statistics';
-                $page_description = 'View production statistics for this shift';
-
-                return view('production.statistics', compact('page_title', 'page_description'));
-            }
         }
     }
 }

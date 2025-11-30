@@ -242,6 +242,5 @@ Route::get('production/create', [ProductionController::class, 'create'])->name('
 Route::post('production', [ProductionController::class, 'store'])->name('production.store');
 Route::post('production/{id}/expire', [ProductionController::class, 'expire'])->name('production.expire');
 
-Route::match(['GET', 'POST'],'production-statistics', [ProductionPlanningController::class, 'statistics'])->name('production-statistics');
 Route::view('production-dashboard-web-view', 'production.dashboard-web-view');
 Route::view('production-listing-web-view', 'production.web-view.index');
