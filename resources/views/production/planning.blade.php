@@ -277,6 +277,9 @@ $(document).ready(function() {
                 required: "Select a shift"
             }
         },
+        errorPlacement: function(error, element) {
+            error.appendTo(element.parent("div"));
+        },
         submitHandler: function(form, event) { 
             event.preventDefault();
 
