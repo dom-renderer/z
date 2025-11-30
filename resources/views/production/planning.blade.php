@@ -331,7 +331,7 @@ $(document).ready(function() {
                         }
 
                     } else {
-                        window.location.href = "{{ route('production.planning-import') }}";
+                        Swal.fire('Error', response.message, 'error');
                     }
                 }
             });
