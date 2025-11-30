@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests;
 
-use App\Services\ShiftValidationService;
 use Illuminate\Foundation\Http\FormRequest;
+use App\Services\ShiftValidationService;
 use Illuminate\Validation\Rule;
 
 class ShiftRequest extends FormRequest
@@ -33,28 +33,20 @@ class ShiftRequest extends FormRequest
         ];
     }
 
-    /**
-     * Configure the validator instance with custom validation
-     *
-     * @param \Illuminate\Validation\Validator $validator
-     * @return void
-     */
     public function withValidator($validator)
     {
         $validator->after(function ($validator) {
-            // Only run custom validation if basic validation passes
+
             if ($validator->errors()->isEmpty()) {
                 $start = $this->input('start');
                 $end = $this->input('end');
 
-                // Get the shift ID if updating
                 $shiftId = null;
                 $routeParam = $this->route('shift');
                 if ($routeParam) {
                     $shiftId = decrypt($routeParam);
                 }
 
-                // Use the validation service
                 $validationService = new ShiftValidationService();
                 $result = $validationService->validateShiftTiming($start, $end, $shiftId);
 
@@ -65,11 +57,6 @@ class ShiftRequest extends FormRequest
         });
     }
 
-    /**
-     * Get custom validation messages
-     *
-     * @return array
-     */
     public function messages(): array
     {
         return [
