@@ -26,15 +26,15 @@ class ShiftController extends Controller
                     $action = '';
 
                     if (auth()->user()->can('shifts.show')) {
-                        $action .= '<a href="'.route("shifts.show", encrypt($row->id)).'" class="btn btn-warning btn-sm me-2"> Show </a>';
+                        $action .= '<a href="' . route("shifts.show", encrypt($row->id)) . '" class="btn btn-warning btn-sm me-2"> Show </a>';
                     }
 
                     if (auth()->user()->can('shifts.edit')) {
-                        $action .= '<a href="'.route('shifts.edit', encrypt($row->id)).'" class="btn btn-info btn-sm me-2">Edit</a>';
+                        $action .= '<a href="' . route('shifts.edit', encrypt($row->id)) . '" class="btn btn-info btn-sm me-2">Edit</a>';
                     }
 
                     if (auth()->user()->can('shifts.destroy')) {
-                        $action .= '<form method="POST" action="'.route("shifts.destroy", encrypt($row->id)).'" style="display:inline;"><input type="hidden" name="_method" value="DELETE"><input type="hidden" name="_token" value="'.csrf_token().'"><button type="submit" class="btn btn-danger btn-sm deleteGroup">Delete</button></form>';
+                        $action .= '<form method="POST" action="' . route("shifts.destroy", encrypt($row->id)) . '" style="display:inline;"><input type="hidden" name="_method" value="DELETE"><input type="hidden" name="_token" value="' . csrf_token() . '"><button type="submit" class="btn btn-danger btn-sm deleteGroup">Delete</button></form>';
                     }
 
                     return $action;
@@ -88,7 +88,7 @@ class ShiftController extends Controller
         return view('shifts.edit', compact('shift', 'page_title', 'id'));
     }
 
-    public function update(Request $request, $id)
+    public function update(ShiftRequest $request, $id)
     {
         $cId = decrypt($id);
 
@@ -106,15 +106,16 @@ class ShiftController extends Controller
         return redirect()->route('shifts.index')->with('success', 'Shift deleted successfully');
     }
 
-    public function shiftSelect(Request $request) {
+    public function shiftSelect(Request $request)
+    {
         $queryString = trim($request->searchQuery);
         $page = $request->input('page', 1);
         $limit = env('SELECT2_PAGE_LENGTH', 5);
         $onlyActive = $request->onlyactive;
         $except = $request->except;
-    
+
         $query = Shift::query();
-    
+
         if (!empty($queryString)) {
             $query->where('title', 'LIKE', "%{$queryString}%");
         }
@@ -125,9 +126,9 @@ class ShiftController extends Controller
                 $query->whereNotIn('id', $except);
             }
         }
-    
+
         $data = $query->paginate($limit, ['*'], 'page', $page);
-    
+
         return response()->json([
             'items' => $data->map(function ($pro) {
                 return [
